@@ -14,6 +14,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import OpenSearchVectorSearch
 
 from langchain.chains import RetrievalQA
+from langchain_community.chat_models import ChatYandexGPT
 
 from streamlit_chat import message
 
@@ -156,6 +157,12 @@ def main():
             st.code(custom_prompt)
     # Если выбрали "задать самостоятельно" и не задали, то берем дефолтный промпт
     if len(custom_prompt)==0: custom_prompt = default_prompt
+    # model_uri = "gpt://"+str(yagpt_folder_id)+"/yandexgpt/latest"
+    # model_uri = "gpt://"+str(yagpt_folder_id)+"/yandexgpt-lite/latest"
+    if selected_model==0: 
+        model_uri = "gpt://"+str(yagpt_folder_id)+"/yandexgpt-lite/latest"
+    else:
+        model_uri = "gpt://"+str(yagpt_folder_id)+"/yandexgpt/latest"    
 
 
     global  yagpt_folder_id, yagpt_api_key, mdb_os_ca, mdb_os_pwd, mdb_os_hosts, mdb_os_index_name    
@@ -230,8 +237,12 @@ def main():
         # инициализировать модели YandexEmbeddings и YandexGPT
         embeddings = YandexEmbeddings(folder_id=yagpt_folder_id, api_key=yagpt_api_key)
 
+
         # обращение к модели YaGPT
-        llm = YandexLLM(api_key=yagpt_api_key, folder_id=yagpt_folder_id, temperature = yagpt_temp, max_tokens=7000)
+        llm = ChatYandexGPT(api_key=yagpt_api_key, model_uri=model_uri, temperature = yagpt_temp, max_tokens=8000)
+        # model = YandexLLM(api_key = yagpt_api_key, folder_id = yagpt_folder_id, temperature = 0.6, max_tokens=8000, use_lite = False)
+        # llm = YandexLLM(api_key=yagpt_api_key, folder_id=yagpt_folder_id, temperature = yagpt_temp, max_tokens=7000)
+        # llm = YandexLLM(api_key = yagpt_api_key, folder_id = yagpt_folder_id, temperature = yagpt_temp.6, max_tokens=8000, use_lite = False)
 
         # инициализация retrival chain - цепочки поиска
         vectorstore = OpenSearchVectorSearch (
