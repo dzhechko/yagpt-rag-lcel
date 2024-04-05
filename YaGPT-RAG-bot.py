@@ -122,7 +122,7 @@ def main():
         ''')
         st.markdown('''
             ## Дополнительные настройки
-            Можно выбрать [модель](https://cloud.yandex.ru/ru/docs/yandexgpt/concepts/models), размер контекстного окна, степень креативности и системный промпт
+            Можно выбрать [модель](https://cloud.yandex.ru/ru/docs/yandexgpt/concepts/models), степень креативности и системный промпт
             ''')
 
     model_list = [
