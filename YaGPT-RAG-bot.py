@@ -174,7 +174,7 @@ def main():
 
     # yagpt_temp = st.sidebar.text_input("Температура", type='password', value=0.01)
     rag_k = st.sidebar.text_input("Количество поисковых выдач размером с один блок", type='password', value=5)
-    yagpt_temp = st.sidebar.slider("Степень креативности (температура)", 0.0, 1.0, 0)
+    yagpt_temp = st.sidebar.slider("Степень креативности (температура)", 0.0, 1.0, 0.01)
 
     # Параметры chunk_size и chunk_overlap
     global chunk_size, chunk_overlap
