@@ -14,7 +14,15 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import OpenSearchVectorSearch
 
 from langchain.chains import RetrievalQA
+
 from langchain_community.chat_models import ChatYandexGPT
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import format_document
+from langchain.memory import ConversationBufferMemory
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from operator import itemgetter
+from langchain_core.messages import AIMessage, HumanMessage, get_buffer_string
+from langchain_core.output_parsers import StrOutputParser
 
 from streamlit_chat import message
 
@@ -54,25 +62,26 @@ def ingest_docs(temp_dir: str = tempfile.gettempdir()):
             chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         documents = text_splitter.split_documents(documents)
         print(len(documents))
-        text_to_print = f"Ориентировочное время = {len(documents)} с."
-        st.text(text_to_print)
 
         # подключаемся к базе данных MDB Opensearch, используя наши ключи (проверка подключения)
-        conn = OpenSearch(
-            mdb_os_hosts,
-            http_auth=('admin', mdb_os_pwd),
-            use_ssl=True,
-            verify_certs=False,
-            ca_certs=MDB_OS_CA)
+        # conn = OpenSearch(
+        #     mdb_os_hosts,
+        #     http_auth=('admin', mdb_os_pwd),
+        #     use_ssl=True,
+        #     verify_certs=False,
+        #     ca_certs=MDB_OS_CA)
         # для включения проверки MDB сертификата используйте verify_certs=True, также надо будет загрузить сертификат используя инструкцию по ссылке 
         # https://cloud.yandex.ru/docs/managed-opensearch/operations/connect 
         # и положить его в папку .opensearch/root.crt
         
         # инициируем процедуру превращения блоков текста в Embeddings через YaGPT Embeddings API, используя API ключ доступа
         embeddings = YandexEmbeddings(folder_id=yagpt_folder_id, api_key=yagpt_api_key)
+        embeddings.sleep_interval = 0.1 #текущее ограничение эмбеддера 10 RPS, делаем задержку 1/10 секунды, чтобы не выйти за это ограничение
+        text_to_print = f"Ориентировочное время оцифровки = {len(documents)*embeddings.sleep_interval} с."
+        st.text(text_to_print)
 
         # добавляем "документы" (embeddings) в векторную базу данных Opensearch
-        docsearch = OpenSearchVectorSearch.from_documents(
+        OpenSearchVectorSearch.from_documents(
             documents,
             embeddings,
             opensearch_url=mdb_os_hosts,
@@ -133,7 +142,6 @@ def main():
     selected_model = 0
     selected_model = st.sidebar.radio("Выберите модель для работы:", model_list, index=selected_model, key="index")     
     
-    # yagpt_prompt = st.sidebar.text_input("Промпт-инструкция для YaGPT")
     # Добавляем виджет для выбора опции
     prompt_option = st.sidebar.selectbox(
         'Выберите какой системный промпт использовать',
@@ -152,7 +160,6 @@ def main():
         custom_prompt = st.sidebar.text_input('Введите пользовательский промпт:')
     else:
         custom_prompt = default_prompt
-        # st.sidebar.write(custom_prompt)
         with st.sidebar:
             st.code(custom_prompt)
     # Если выбрали "задать самостоятельно" и не задали, то берем дефолтный промпт
@@ -161,19 +168,17 @@ def main():
 
     global  yagpt_folder_id, yagpt_api_key, mdb_os_ca, mdb_os_pwd, mdb_os_hosts, mdb_os_index_name    
     yagpt_folder_id = st.sidebar.text_input("YAGPT_FOLDER_ID", type='password')
-    # yagpt_api_id = st.sidebar.text_input("YAGPT_API_ID", type='password')
     yagpt_api_key = st.sidebar.text_input("YAGPT_API_KEY", type='password')
     mdb_os_ca = MDB_OS_CA
+    # в этой версии креды для доступа к MDB OS задаются в системных переменных
     # mdb_os_pwd = st.sidebar.text_input("MDB_OpenSearch_PASSWORD", type='password')
     # mdb_os_hosts = st.sidebar.text_input("MDB_OpenSearch_HOSTS через 'запятую' ", type='password').split(",")
     mdb_os_index_name = st.sidebar.text_input("MDB_OpenSearch_INDEX_NAME", type='password', value=mdb_os_index_name)
     mdb_os_index_name = f"cba-{mdb_os_index_name}"
 
-    # yagpt_temp = st.sidebar.slider("Температура", 0.0, 1.0, 0.1)
-    # rag_k = st.sidebar.slider("Количество поисковых выдач размером с один блок", 1, 10, 5)
-
     # yagpt_temp = st.sidebar.text_input("Температура", type='password', value=0.01)
     rag_k = st.sidebar.text_input("Количество поисковых выдач размером с один блок", type='password', value=5)
+    # rag_k = st.sidebar.slider("Количество поисковых выдач размером с один блок", 1, 10, 5)
     yagpt_temp = st.sidebar.slider("Степень креативности (температура)", 0.0, 1.0, 0.01)
 
     # Параметры chunk_size и chunk_overlap
@@ -221,13 +226,14 @@ def main():
     if st.session_state['ready']:
 
         # подключиться к векторной БД Opensearch, используя учетные данные (проверка подключения)
-        conn = OpenSearch(
-            mdb_os_hosts,
-            http_auth=('admin', mdb_os_pwd),
-            use_ssl=True,
-            verify_certs=False,
-            ca_certs=MDB_OS_CA
-            )
+        # conn = OpenSearch(
+        #     mdb_os_hosts,
+        #     http_auth=('admin', mdb_os_pwd),
+        #     use_ssl=True,
+        #     verify_certs=False,
+        #     ca_certs=MDB_OS_CA
+        #     )
+        # print(conn)
 
         # инициализировать модели YandexEmbeddings и YandexGPT
         embeddings = YandexEmbeddings(folder_id=yagpt_folder_id, api_key=yagpt_api_key)
@@ -256,21 +262,72 @@ def main():
             engine = 'lucene'
         )  
 
-        # template = """
-        # Представь, что ты полезный ИИ-помощник. Твоя задача отвечать на вопросы по информации из предоставленного ниже контекста.
-        # Отвечай точно в рамках предоставленного контекста, даже если тебя просят придумать.
-        # Отвечай вежливо в официальном стиле. 
-        # Если ответ в контексте отсутствует, отвечай: "Я могу давать ответы только по тематике загруженных документов. Мне не удалось найти в документах ответ на ваш вопрос." даже если думаешь, что знаешь ответ на вопрос. 
-        # Контекст: {context}
-        # Вопрос: {question}
-        # """
-        QA_CHAIN_PROMPT = PromptTemplate.from_template(custom_prompt)
-        qa = RetrievalQA.from_chain_type(
-            llm,
-            retriever=vectorstore.as_retriever(search_kwargs={'k': rag_k}),
-            return_source_documents=True,
-            chain_type_kwargs={"prompt": QA_CHAIN_PROMPT}
+        _template = """Учитывая историю общения и текущий вопрос, составь из всего этого отдельный общий вопрос на русском языке.
+
+        История общения:
+        {chat_history}
+        Текущий вопрос: {question}
+        Отдельный общий вопрос:"""
+        CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(_template)
+
+        custom_prompt = """Отвечай на вопрос, основываясь только на следующем контексте:
+        {context}
+        Вопрос: {question}
+        """
+        ANSWER_PROMPT = ChatPromptTemplate.from_template(custom_prompt)
+        DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(template="{page_content}")       
+
+        def _combine_documents(docs, document_prompt=DEFAULT_DOCUMENT_PROMPT, document_separator="\n\n"):
+            doc_strings = [format_document(doc, document_prompt) for doc in docs]
+            return document_separator.join(doc_strings)
+        
+        memory = ConversationBufferMemory(
+            return_messages=True, output_key="answer", input_key="question"
         )
+        # Сначала мы добавляем шаг для загрузки памяти
+        # Поэтому добавляем ключ "memory" во входящий объект
+        loaded_memory = RunnablePassthrough.assign(
+            chat_history=RunnableLambda(memory.load_memory_variables) | itemgetter("history"),
+        )
+
+        # Теперь определяем standalone_question (композитный вопрос, который учитывает историю общения)
+        standalone_question = {
+            "standalone_question": {
+                "question": lambda x: x["question"],
+                "chat_history": lambda x: get_buffer_string(x["chat_history"]),
+            }
+            | CONDENSE_QUESTION_PROMPT
+            | llm
+            | StrOutputParser(),
+        }
+
+        # Теперь извлекаем нужные документы
+        retriever = vectorstore.as_retriever(search_kwargs={'k': rag_k})
+        retrieved_documents = {
+            "docs": itemgetter("standalone_question") | retriever,
+            "question": lambda x: x["standalone_question"],
+        }
+        # Конструируем вводные для финального промпта
+        final_inputs = {
+            "context": lambda x: _combine_documents(x["docs"]),
+            "question": itemgetter("question"),
+        }
+
+        # Теперь запускаем выдачу ответов
+        answer = {
+            "answer": final_inputs | ANSWER_PROMPT | llm,
+            "docs": itemgetter("docs"),
+        }
+        # И собираем все вместе!
+        qa = loaded_memory | standalone_question | retrieved_documents | answer
+
+        # QA_CHAIN_PROMPT = PromptTemplate.from_template(custom_prompt)
+        # qa = RetrievalQA.from_chain_type(
+        #     llm,
+        #     retriever=vectorstore.as_retriever(search_kwargs={'k': rag_k}),
+        #     return_source_documents=True,
+        #     chain_type_kwargs={"prompt": QA_CHAIN_PROMPT}
+        # )
 
         if 'generated' not in st.session_state:
             st.session_state['generated'] = [

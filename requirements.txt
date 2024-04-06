@@ -5,3 +5,4 @@ langchain==0.1.4
 yandexcloud==0.255.0
 opensearch-py
 pypdf
+langchain-community
