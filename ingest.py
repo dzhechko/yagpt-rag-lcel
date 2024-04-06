@@ -5,6 +5,8 @@ from langchain.vectorstores import OpenSearchVectorSearch
 from yandex_chain import YandexEmbeddings
 import streamlit as st
 
+global chunk_size, chunk_overlap
+global  yagpt_folder_id, yagpt_api_key, mdb_os_ca, mdb_os_pwd, mdb_os_hosts, mdb_os_index_name
 
 def ingest_docs(temp_dir: str = tempfile.gettempdir()):
     """
