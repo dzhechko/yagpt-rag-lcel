@@ -24,6 +24,7 @@ from langchain_core.output_parsers import StrOutputParser
 
 from streamlit_chat import message
 from constants import MDB_OS_CA
+from ingest import ingest_docs
 
 # from dotenv import load_dotenv
 

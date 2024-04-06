@@ -5,6 +5,7 @@ from langchain.vectorstores import OpenSearchVectorSearch
 from yandex_chain import YandexEmbeddings
 import streamlit as st
 
+
 def ingest_docs(temp_dir: str = tempfile.gettempdir()):
     """
     Инъекция ваших pdf файлов в MBD Opensearch
